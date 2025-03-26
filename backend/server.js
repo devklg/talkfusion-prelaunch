@@ -1,52 +1,99 @@
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
-require("dotenv").config();
+const dotenv = require("dotenv");
+const fs = require("fs");
+const path = require("path");
+const net = require('net');
 
-const authRoutes = require("./routes/authRoutes");
-const signupRoutes = require("./routes/signupRoutes");
-const leaderboardRoutes = require("./routes/leaderboardRoutes");
-const earningsRoutes = require("./routes/earningsRoutes");
+// Load environment variables
+dotenv.config();
 
 const app = express();
-app.use(cors());
+
+// Middleware
 app.use(express.json());
+app.use(cors({
+    origin: 'http://localhost:5173', // Vite's default port
+    credentials: true
+}));
 
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => console.log("MongoDB connected"))
-.catch((err) => console.error("MongoDB error:", err));
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ message: "Something went wrong!" });
+});
 
-app.use("/api/auth", authRoutes);
-app.use("/api/signups", signupRoutes);
-app.use("/api/leaderboard", leaderboardRoutes);
-app.use("/api/earnings", earningsRoutes);
+// MongoDB connection
+mongoose.connect(process.env.MONGO_URI)
+    .then(() => console.log("Connected to MongoDB"))
+    .catch(err => console.error("MongoDB connection error:", err));
 
-const startServer = async (port) => {
-  try {
-    await new Promise((resolve, reject) => {
-      const server = app.listen(port)
-        .on('listening', () => {
-          console.log(`Server running on port ${port}`);
-          resolve();
-        })
-        .on('error', (err) => {
-          if (err.code === 'EADDRINUSE') {
-            console.log(`Port ${port} is busy, trying ${port + 1}`);
+// Routes
+app.use("/api/auth", require("./routes/authRoutes"));
+app.use("/api/leaderboard", require("./routes/leaderboardRoutes"));
+app.use("/api/earnings", require("./routes/earningsRoutes"));
+app.use("/api/users", require("./routes/userRoutes"));
+
+// Function to check if a port is available
+const isPortAvailable = (port) => {
+    return new Promise((resolve) => {
+        const server = net.createServer();
+        server.listen(port, () => {
+            server.once('close', () => resolve(true));
             server.close();
-            startServer(port + 1);
-          } else {
-            reject(err);
-          }
         });
+        server.on('error', () => resolve(false));
     });
-  } catch (err) {
-    console.error('Failed to start server:', err);
-    process.exit(1);
-  }
 };
 
-const PORT = process.env.PORT || 5000;
-startServer(PORT); 
+// Function to find an available port
+const findAvailablePort = async (startPort) => {
+    let port = startPort;
+    while (port < startPort + 100) {
+        if (await isPortAvailable(port)) {
+            return port;
+        }
+        port++;
+    }
+    throw new Error('No available ports found');
+};
+
+// Start server with dynamic port
+const startServer = async () => {
+    try {
+        const startPort = parseInt(process.env.PORT) || 5000;
+        const port = await findAvailablePort(startPort);
+        
+        const server = app.listen(port, () => {
+            console.log(`Server running on port ${port}`);
+            // Write port to file for frontend to read
+            fs.writeFileSync(path.join(__dirname, 'server.port'), port.toString());
+        });
+
+        // Handle server errors
+        server.on('error', (err) => {
+            if (err.code === 'EADDRINUSE') {
+                console.log(`Port ${port} is busy, trying next port...`);
+                server.close();
+                startServer();
+            } else {
+                console.error('Server error:', err);
+            }
+        });
+
+        // Handle graceful shutdown
+        process.on('SIGTERM', () => {
+            console.log('SIGTERM received. Shutting down gracefully...');
+            server.close(() => {
+                console.log('Server closed');
+                process.exit(0);
+            });
+        });
+    } catch (error) {
+        console.error('Failed to start server:', error);
+        process.exit(1);
+    }
+};
+
+startServer(); 

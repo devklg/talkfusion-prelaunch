@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import axios from "axios";
+import api from "../utils/api";
+import { useNavigate } from "react-router-dom";
 
 const ApplicationForm = () => {
     const [formData, setFormData] = useState({
@@ -11,6 +12,7 @@ const ApplicationForm = () => {
     });
     const [errors, setErrors] = useState({});
     const [showModal, setShowModal] = useState(false);
+    const navigate = useNavigate();
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -35,10 +37,22 @@ const ApplicationForm = () => {
             return;
         }
         try {
-            await axios.post("/api/auth/signup", formData);
-            setShowModal(true);
+            const response = await api.post("/api/auth/signup", formData);
+            if (response.data.message === "Signup successful") {
+                // Store token and temp password
+                localStorage.setItem('token', response.data.user.token);
+                localStorage.setItem('tempPassword', response.data.user.tempPassword);
+
+                setShowModal(true);
+                setTimeout(() => {
+                    navigate("/dashboard");
+                }, 2000);
+            } else {
+                alert(response.data.message || "Something went wrong. Try again later.");
+            }
         } catch (err) {
-            alert("Something went wrong. Try again later.");
+            console.error("Signup error:", err);
+            alert(err.response?.data?.message || "Something went wrong. Try again later.");
         }
     };
 
@@ -107,9 +121,9 @@ const ApplicationForm = () => {
                 {errors.package && <p className="text-red-400 text-sm mb-2">{errors.package}</p>}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     {[
-                        { label: "Entry Pack", value: "entry", price: "$175", perks: ["Basic tools", "100 PV", "$50 Bonus", "Training"] },
-                        { label: "Elite Pack", value: "elite", price: "$350", perks: ["Advanced tools", "200 PV", "$100 Bonus", "Priority"] },
-                        { label: "Pro Pack", value: "pro", price: "$700", perks: ["Full tools", "400 PV", "$200 Bonus", "24/7 Support"] }
+                        { label: "Entry Pack", value: "Entry Pack", price: "$175", perks: ["Basic tools", "100 PV", "$50 Bonus", "Training"] },
+                        { label: "Elite Pack", value: "Elite Pack", price: "$350", perks: ["Advanced tools", "200 PV", "$100 Bonus", "Priority"] },
+                        { label: "Pro Pack", value: "Pro Pack", price: "$700", perks: ["Full tools", "400 PV", "$200 Bonus", "24/7 Support"] }
                     ].map((pkg) => (
                         <label
                             key={pkg.value}
@@ -145,13 +159,8 @@ const ApplicationForm = () => {
                 <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
                     <div className="bg-white text-black p-8 rounded-xl shadow-xl text-center max-w-md">
                         <h2 className="text-2xl font-bold mb-4">✅ You're In!</h2>
-                        <p className="mb-6">Thanks for enrolling. A confirmation email will be sent shortly.</p>
-                        <button
-                            onClick={() => setShowModal(false)}
-                            className="bg-blue-600 text-white font-semibold py-2 px-6 rounded"
-                        >
-                            Close
-                        </button>
+                        <p className="mb-6">Thanks for enrolling. You'll be redirected to your dashboard shortly.</p>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                     </div>
                 </div>
             )}
