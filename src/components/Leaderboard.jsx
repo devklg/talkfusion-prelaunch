@@ -1,74 +1,73 @@
 import React, { useState, useEffect } from 'react';
-import { getAxiosInstance } from '../api/axios';
+import axios from '../utils/axios';
+import Layout from './Layout';
 
 const Leaderboard = () => {
-    const [users, setUsers] = useState([]);
+    const [leaders, setLeaders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
     useEffect(() => {
-        const fetchLeaderboard = async () => {
+        const fetchLeaders = async () => {
             try {
-                const axiosInstance = await getAxiosInstance();
-                const response = await axiosInstance.get('/users/leaderboard');
-                setUsers(response.data);
+                const response = await axios.get('/users/leaderboard');
+                setLeaders(response.data);
             } catch (err) {
-                setError('Failed to load leaderboard');
-                console.error('Leaderboard error:', err);
+                console.error('Error fetching leaderboard:', err);
+                setError('Failed to load leaderboard data');
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchLeaderboard();
+        fetchLeaders();
     }, []);
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-                <div className="text-white">Loading...</div>
-            </div>
+            <Layout>
+                <div className="flex justify-center items-center h-64">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                </div>
+            </Layout>
         );
     }
 
     if (error) {
         return (
-            <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-                <div className="text-red-500">{error}</div>
-            </div>
+            <Layout>
+                <div className="text-center text-red-500 p-4">
+                    {error}
+                </div>
+            </Layout>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-900">
-            <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-                <div className="px-4 py-6 sm:px-0">
-                    <h1 className="text-2xl font-bold text-white mb-4">Leaderboard</h1>
-                    <div className="bg-gray-800 rounded-lg shadow overflow-hidden">
-                        <table className="min-w-full divide-y divide-gray-700">
-                            <thead className="bg-gray-700">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Rank</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Name</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Country</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Points</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-gray-800 divide-y divide-gray-700">
-                                {users.map((user, index) => (
-                                    <tr key={user._id}>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{index + 1}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{user.firstName} {user.lastName}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{user.country}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{user.points}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+        <Layout>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div className="bg-gray-800 rounded-lg shadow-lg p-6">
+                    <h2 className="text-2xl font-bold text-white mb-6">Top Performers</h2>
+                    <div className="space-y-4">
+                        {leaders.map((leader, index) => (
+                            <div key={leader._id} className="flex items-center justify-between bg-gray-700 rounded-lg p-4">
+                                <div className="flex items-center space-x-4">
+                                    <span className="text-xl font-bold text-blue-500">#{index + 1}</span>
+                                    <div>
+                                        <h3 className="text-white font-medium">{leader.firstName} {leader.lastName}</h3>
+                                        <p className="text-gray-400 text-sm">{leader.country}</p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-white font-medium">{leader.points}</p>
+                                    <p className="text-gray-400 text-sm">points</p>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>
-        </div>
+        </Layout>
     );
 };
 

@@ -1,8 +1,11 @@
-import { checkHealth } from '../api/axios';
+import axios from '../utils/axios';
 
 class MonitoringService {
     constructor() {
-        this.healthCheckInterval = 30000; // 30 seconds
+        this.healthCheckInterval = null;
+        this.isHealthy = true;
+        this.errorCount = 0;
+        this.lastError = null;
         this.performanceMetrics = {
             apiLatency: [],
             errorCount: 0,
@@ -12,48 +15,42 @@ class MonitoringService {
         this.startHealthCheck();
     }
 
-    startHealthCheck() {
-        setInterval(async () => {
-            try {
-                const startTime = performance.now();
-                const isHealthy = await checkHealth();
-                const endTime = performance.now();
-                const latency = endTime - startTime;
-
-                this.performanceMetrics.apiLatency.push(latency);
-                this.performanceMetrics.lastCheck = new Date().toISOString();
-
-                // Keep only last 100 latency measurements
-                if (this.performanceMetrics.apiLatency.length > 100) {
-                    this.performanceMetrics.apiLatency.shift();
-                }
-
-                // Log health status
-                console.log('Health check:', {
-                    status: isHealthy ? 'healthy' : 'unhealthy',
-                    latency: `${latency.toFixed(2)}ms`,
-                    timestamp: new Date().toISOString()
-                });
-
-                // If unhealthy, log warning
-                if (!isHealthy) {
-                    this.performanceMetrics.errorCount++;
-                    this.performanceMetrics.lastError = {
-                        timestamp: new Date().toISOString(),
-                        type: 'health_check_failed'
-                    };
-                    console.warn('Application health check failed');
-                }
-            } catch (error) {
-                this.performanceMetrics.errorCount++;
-                this.performanceMetrics.lastError = {
-                    timestamp: new Date().toISOString(),
-                    type: 'health_check_error',
-                    error: error.message
-                };
-                console.error('Health check error:', error);
+    async checkHealth() {
+        try {
+            const response = await axios.get('/api/health');
+            if (response.status === 200) {
+                this.isHealthy = true;
+                this.errorCount = 0;
+                this.lastError = null;
+                return true;
             }
-        }, this.healthCheckInterval);
+        } catch (error) {
+            console.error('Health check failed:', error);
+            this.isHealthy = false;
+            this.errorCount++;
+            this.lastError = error.message;
+            return false;
+        }
+    }
+
+    startHealthCheck(interval = 30000) {
+        this.stopHealthCheck();
+        this.healthCheckInterval = setInterval(() => this.checkHealth(), interval);
+    }
+
+    stopHealthCheck() {
+        if (this.healthCheckInterval) {
+            clearInterval(this.healthCheckInterval);
+            this.healthCheckInterval = null;
+        }
+    }
+
+    getHealthStatus() {
+        return {
+            isHealthy: this.isHealthy,
+            errorCount: this.errorCount,
+            lastError: this.lastError
+        };
     }
 
     getMetrics() {
@@ -86,6 +83,4 @@ class MonitoringService {
     }
 }
 
-// Create singleton instance
-const monitoringService = new MonitoringService();
-export default monitoringService; 
+export default new MonitoringService(); 

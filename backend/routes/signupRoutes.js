@@ -1,11 +1,7 @@
 const express = require("express");
 const router = express.Router();
-const { getSignups, createSignup } = require("../controllers/signupController");
+const { signup } = require("../controllers/signupController");
 
-// GET route for fetching signups
-router.get("/", getSignups);
+router.post("/", signup);
 
-// POST route for form submission
-router.post("/", createSignup);
-
-module.exports = router; 
+module.exports = router;

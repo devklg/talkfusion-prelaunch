@@ -1,55 +1,53 @@
 const User = require("../models/User");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
-// Get all signups
-exports.getSignups = async (req, res) => {
-    try {
-        const signups = await User.find().sort({ createdAt: -1 });
-        res.json(signups);
-    } catch (error) {
-        res.status(500).json({ message: "Error fetching signups", error: error.message });
+exports.signup = async (req, res) => {
+  try {
+    const { firstName, lastName, email, password } = req.body;
+
+    // Validate required fields
+    if (!firstName || !lastName || !email || !password) {
+      return res.status(400).json({ message: "All fields are required" });
     }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "Email already registered" });
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Create new user
+    const user = new User({
+      firstName,
+      lastName,
+      email,
+      password: hashedPassword,
+    });
+
+    await user.save();
+
+    // Generate JWT token
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "24h",
+    });
+
+    res.status(201).json({
+      message: "User created successfully",
+      token,
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    console.error("Signup error:", error);
+    res.status(500).json({ message: error.message || "Error creating user" });
+  }
 };
-
-// Create new signup
-exports.createSignup = async (req, res) => {
-    try {
-        const { firstName, lastName, email, enroller, package } = req.body;
-
-        // Validate required fields
-        if (!firstName || !lastName || !email || !enroller || !package) {
-            return res.status(400).json({ message: "All fields are required" });
-        }
-
-        // Check if email already exists
-        const existingUser = await User.findOne({ email });
-        if (existingUser) {
-            return res.status(400).json({ message: "Email already registered" });
-        }
-
-        // Create new user
-        const user = new User({
-            name: `${firstName} ${lastName}`,
-            email,
-            enroller,
-            package,
-            referrals: 0,
-            // Add a temporary password (you might want to handle this differently)
-            password: "tempPassword123"
-        });
-
-        await user.save();
-
-        // Return success response
-        res.status(201).json({
-            message: "Signup successful",
-            user: {
-                name: user.name,
-                email: user.email,
-                package: user.package
-            }
-        });
-    } catch (error) {
-        console.error("Signup error:", error);
-        res.status(500).json({ message: "Error creating signup", error: error.message });
-    }
-}; 

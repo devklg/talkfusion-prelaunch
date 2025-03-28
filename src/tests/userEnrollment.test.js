@@ -25,7 +25,20 @@ const localStorage = {
 };
 
 const testUsers = [
-    { firstName: 'John', lastName: 'Smith', email: 'john.smith.001@test.com', country: 'USA' },
+    {
+        firstName: 'John',
+        lastName: 'Smith',
+        email: 'john.smith.001@test.com',
+        enroller: 'Jane Doe',
+        enrollerId: 'ENR001',
+        package: 'Basic',
+        address: '123 Main St',
+        city: 'New York',
+        state: 'NY',
+        zip: '10001',
+        country: 'US',
+        telephone: '+1-555-0123'
+    },
     { firstName: 'Maria', lastName: 'Garcia', email: 'maria.garcia.002@test.com', country: 'Spain' },
     { firstName: 'David', lastName: 'Kim', email: 'david.kim.003@test.com', country: 'South Korea' },
     { firstName: 'Sarah', lastName: 'Wilson', email: 'sarah.wilson.004@test.com', country: 'UK' },
@@ -60,11 +73,17 @@ const testEnrollment = async () => {
         try {
             console.log(`\nTesting enrollment for ${user.firstName} ${user.lastName}...`);
             
-            // Step 1: Signup
+            // Step 1: Signup with package selection
             const axiosInstance = await getAxiosInstance();
             console.log(`Attempting signup for ${user.email}...`);
             
-            const signupResponse = await axiosInstance.post('/auth/signup', user);
+            const signupResponse = await axiosInstance.post('/auth/signup', {
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                enroller: user.enroller,
+                package: user.package
+            });
             console.log('✓ Signup successful');
             
             // Add delay between requests
@@ -86,11 +105,30 @@ const testEnrollment = async () => {
             // Add delay between requests
             await delay(1000);
             
-            // Step 3: Change password
+            // Step 3: Complete profile information
+            console.log(`Updating profile information for ${user.email}...`);
+            await axiosInstance.put('/users/profile', {
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                enroller: user.enroller,
+                enrollerId: user.enrollerId,
+                address: user.address,
+                city: user.city,
+                state: user.state,
+                zip: user.zip,
+                country: user.country,
+                telephone: user.telephone
+            });
+            console.log('✓ Profile information updated successfully');
+            
+            // Add delay between requests
+            await delay(1000);
+            
+            // Step 4: Change password
             console.log(`Attempting password change for ${user.email}...`);
             const newPassword = `NewPass${user.firstName}123!`;
             await axiosInstance.post('/auth/change-password', {
-                email: user.email,
                 currentPassword: tempPassword,
                 newPassword: newPassword
             });
@@ -99,7 +137,20 @@ const testEnrollment = async () => {
             // Add delay between requests
             await delay(1000);
             
-            // Step 4: Verify login with new password
+            // Step 5: Add payment information
+            console.log(`Adding payment information for ${user.email}...`);
+            await axiosInstance.post('/users/payment', {
+                cardNumber: '4111111111111111',
+                expiryDate: '12/25',
+                cvv: '123',
+                cardholderName: `${user.firstName} ${user.lastName}`
+            });
+            console.log('✓ Payment information added successfully');
+            
+            // Add delay between requests
+            await delay(1000);
+            
+            // Step 6: Verify login with new password
             console.log(`Verifying login with new password for ${user.email}...`);
             await axiosInstance.post('/auth/login', {
                 email: user.email,
@@ -107,16 +158,33 @@ const testEnrollment = async () => {
             });
             console.log('✓ Login with new password successful');
             
-            // Step 5: Test profile access
+            // Step 7: Test profile access and data verification
             console.log(`Testing profile access for ${user.email}...`);
             const profileResponse = await axiosInstance.get('/users/me');
-            console.log('✓ Profile access successful');
-            console.log('Profile data:', profileResponse.data);
+            const profileData = profileResponse.data;
+            
+            // Verify profile data matches
+            const profileMatches = 
+                profileData.firstName === user.firstName &&
+                profileData.lastName === user.lastName &&
+                profileData.email === user.email &&
+                profileData.enroller === user.enroller &&
+                profileData.enrollerId === user.enrollerId &&
+                profileData.address === user.address &&
+                profileData.city === user.city &&
+                profileData.state === user.state &&
+                profileData.zip === user.zip &&
+                profileData.country === user.country &&
+                profileData.telephone === user.telephone;
+            
+            console.log(profileMatches ? '✓ Profile data verified successfully' : '✗ Profile data mismatch');
+            console.log('Profile data:', profileData);
             
             results.push({
                 user: `${user.firstName} ${user.lastName}`,
                 status: 'success',
-                email: user.email
+                email: user.email,
+                profileVerified: profileMatches
             });
             
         } catch (error) {
@@ -140,9 +208,12 @@ const testEnrollment = async () => {
     console.log('\n=== Test Summary ===');
     const successful = results.filter(r => r.status === 'success').length;
     const failed = results.filter(r => r.status === 'failed').length;
+    const verified = results.filter(r => r.status === 'success' && r.profileVerified).length;
+    
     console.log(`Total Users: ${results.length}`);
     console.log(`Successful: ${successful}`);
     console.log(`Failed: ${failed}`);
+    console.log(`Profiles Verified: ${verified}`);
     
     if (failed > 0) {
         console.log('\nFailed Enrollments:');
@@ -157,6 +228,9 @@ const testEnrollment = async () => {
     console.log('\nSuccessful Enrollments:');
     results.filter(r => r.status === 'success').forEach(r => {
         console.log(`- ${r.user} (${r.email})`);
+        if (!r.profileVerified) {
+            console.log('  ⚠️ Profile data verification failed');
+        }
     });
 };
 

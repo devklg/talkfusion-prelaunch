@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getAxiosInstance } from '../api/axios';
+import axios from '../utils/axios';
+import { useAuth } from '../context/AuthContext';
 import Layout from "./Layout";
 import {
     HiCurrencyDollar,
@@ -19,37 +19,26 @@ import {
 } from "react-icons/hi";
 
 const Dashboard = () => {
-    const [user, setUser] = useState(null);
+    const { user, logout } = useAuth();
+    const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const navigate = useNavigate();
+    const [error, setError] = useState(null);
 
     useEffect(() => {
-        const fetchUserData = async () => {
+        const fetchStats = async () => {
             try {
-                const axiosInstance = await getAxiosInstance();
-                const response = await axiosInstance.get('/users/me');
-                setUser(response.data);
+                const response = await axios.get('/dashboard/stats');
+                setStats(response.data);
             } catch (err) {
-                console.error('Error fetching user data:', err);
-                if (err.response?.status === 401) {
-                    navigate('/login');
-                } else {
-                    setError('Failed to load user data');
-                }
+                console.error('Error fetching dashboard stats:', err);
+                setError('Failed to load dashboard data');
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchUserData();
-    }, [navigate]);
-
-    const handleLogout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        navigate('/login');
-    };
+        fetchStats();
+    }, []);
 
     if (loading) {
         return (
@@ -105,7 +94,7 @@ const Dashboard = () => {
                         </div>
                         <div>
                             <p className="text-sm text-gray-400">Total Earnings</p>
-                            <p className="text-2xl font-bold text-white">${user?.earnings}</p>
+                            <p className="text-2xl font-bold text-white">${stats?.totalEarnings}</p>
                         </div>
                     </div>
 
@@ -122,7 +111,7 @@ const Dashboard = () => {
                         </div>
                         <div>
                             <p className="text-sm text-gray-400">Total Referrals</p>
-                            <p className="text-2xl font-bold text-white">{user?.referrals}</p>
+                            <p className="text-2xl font-bold text-white">{stats?.activeTeamMembers}</p>
                         </div>
                     </div>
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
-import Home from './components/Home';
+import LandingPage from './components/LandingPage';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import ChangePassword from './components/ChangePassword';
@@ -20,13 +20,14 @@ const PrivateRoute = ({ children }) => {
 const App = () => {
     // Log application startup
     React.useEffect(() => {
+        // --- CORRECTED LINES ---
         console.log('Application started:', {
             timestamp: new Date().toISOString(),
-            environment: process.env.NODE_ENV,
-            version: process.env.VITE_APP_VERSION
+            environment: import.meta.env.MODE, // Use Vite's MODE
+            version: import.meta.env.VITE_APP_VERSION // Use import.meta.env
         });
+        // --- END CORRECTION ---
     }, []);
-
     return (
         <ErrorBoundary>
             <AuthProvider>
@@ -34,7 +35,7 @@ const App = () => {
                     <div className="min-h-screen bg-gray-900">
                         <Navbar />
                         <Routes>
-                            <Route path="/" element={<Home />} />
+                            <Route path="/" element={<LandingPage />} />
                             <Route path="/login" element={<Login />} />
                             <Route path="/signup" element={<Signup />} />
                             <Route path="/change-password" element={<ChangePassword />} />
