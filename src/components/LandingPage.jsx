@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "../utils/axios";
+import api from "../utils/api";
 import { useNavigate } from "react-router-dom";
 
 const LandingPage = () => {
@@ -12,7 +12,8 @@ const LandingPage = () => {
         const fetchLeaderboard = async () => {
             try {
                 setLoading(true);
-                const response = await axios.get("/api/leaderboard");
+                const response = await api.get("/api/leaderboard");
+                console.log('Leaderboard data:', response.data);
                 setLeaderboard(response.data);
             } catch (err) {
                 console.error("Error fetching leaderboard:", err);
@@ -57,6 +58,7 @@ const LandingPage = () => {
                                 allowFullScreen
                                 className="w-full h-full"
                                 frameBorder="0"
+                                loading="lazy"
                             ></iframe>
                         </div>
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl flex items-end pointer-events-none">
@@ -76,6 +78,7 @@ const LandingPage = () => {
                                 allowFullScreen
                                 className="w-full h-full"
                                 frameBorder="0"
+                                loading="lazy"
                             ></iframe>
                         </div>
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl flex items-end pointer-events-none">
@@ -97,16 +100,25 @@ const LandingPage = () => {
                 <section className="bg-white text-black rounded-xl shadow-xl p-6 w-full max-w-2xl">
                     <h2 className="text-2xl font-bold text-center mb-4">🔥 Top Referrers</h2>
                     {loading ? (
-                        <div className="text-center py-4">Loading leaderboard...</div>
+                        <div className="flex items-center justify-center py-8">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            <span className="ml-2">Loading leaderboard...</span>
+                        </div>
                     ) : error ? (
                         <div className="text-center py-4 text-red-600">{error}</div>
                     ) : leaderboard.length === 0 ? (
-                        <div className="text-center py-4">No data available yet</div>
+                        <div className="text-center py-4 text-gray-600">No data available yet</div>
                     ) : (
                         <ul className="divide-y divide-gray-300">
                             {leaderboard.map((user, index) => (
-                                <li key={index} className="py-2 text-lg">
-                                    <span className="font-semibold">{user.name}</span> — {user.referrals} referrals
+                                <li key={index} className="py-3 flex items-center justify-between">
+                                    <div className="flex items-center">
+                                        <span className="text-lg font-semibold text-gray-900">{user.name}</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                        <span className="text-lg font-bold text-blue-600">{user.referrals}</span>
+                                        <span className="ml-2 text-gray-500">referrals</span>
+                                    </div>
                                 </li>
                             ))}
                         </ul>

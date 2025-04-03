@@ -9,11 +9,27 @@ export const AuthProvider = ({ children }) => {
     const [error, setError] = useState('');
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        }
-        setLoading(false);
+        const initializeAuth = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                if (token) {
+                    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+                    // Fetch user data
+                    const response = await axios.get('/api/users/me');
+                    setUser(response.data);
+                }
+            } catch (error) {
+                console.error('Auth initialization error:', error);
+                // Clear invalid token
+                localStorage.removeItem('token');
+                delete axios.defaults.headers.common['Authorization'];
+                setUser(null);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        initializeAuth();
     }, []);
 
     const login = async (email, password) => {
@@ -52,7 +68,7 @@ export const AuthProvider = ({ children }) => {
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-900">
-                <div className="text-white text-xl">Loading...</div>
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
             </div>
         );
     }

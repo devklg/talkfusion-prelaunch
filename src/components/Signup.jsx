@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import api from "../utils/api";
 import { useNavigate } from "react-router-dom";
+import { HiClipboardCopy } from "react-icons/hi";
 
 const ApplicationForm = () => {
     const [formData, setFormData] = useState({
@@ -11,12 +12,31 @@ const ApplicationForm = () => {
         package: ""
     });
     const [errors, setErrors] = useState({});
+    const [apiError, setApiError] = useState("");
     const [showModal, setShowModal] = useState(false);
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [tempPassword, setTempPassword] = useState('');
+    const [countdown, setCountdown] = useState(60);
+    const [success, setSuccess] = useState('');
     const navigate = useNavigate();
+
+    useEffect(() => {
+        let timer;
+        if (showPasswordModal && countdown > 0) {
+            timer = setInterval(() => {
+                setCountdown(prev => prev - 1);
+            }, 1000);
+        } else if (countdown === 0) {
+            setShowPasswordModal(false);
+            navigate('/login');
+        }
+        return () => clearInterval(timer);
+    }, [showPasswordModal, countdown, navigate]);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
         setErrors({ ...errors, [e.target.name]: "" });
+        setApiError("");
     };
 
     const validate = () => {
@@ -31,6 +51,7 @@ const ApplicationForm = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setApiError("");
         const validationErrors = validate();
         if (Object.keys(validationErrors).length > 0) {
             setErrors(validationErrors);
@@ -39,20 +60,16 @@ const ApplicationForm = () => {
         try {
             const response = await api.post("/api/auth/signup", formData);
             if (response.data.message === "Signup successful") {
-                // Store token and temp password
                 localStorage.setItem('token', response.data.user.token);
                 localStorage.setItem('tempPassword', response.data.user.tempPassword);
-
-                setShowModal(true);
-                setTimeout(() => {
-                    navigate("/dashboard");
-                }, 2000);
-            } else {
-                alert(response.data.message || "Something went wrong. Try again later.");
+                localStorage.setItem('tempEmail', formData.email);
+                setTempPassword(response.data.user.tempPassword);
+                setShowPasswordModal(true);
+                setCountdown(60);
             }
         } catch (err) {
             console.error("Signup error:", err);
-            alert(err.response?.data?.message || "Something went wrong. Try again later.");
+            setApiError(err.response?.data?.message || "Something went wrong. Please try again.");
         }
     };
 
@@ -63,6 +80,12 @@ const ApplicationForm = () => {
                 <p className="text-md text-orange-400 font-semibold">Marketing & Sales Group -- Team 25,000</p>
                 <h2 className="text-3xl font-bold mt-6">Pre-Enrollment Form</h2>
             </div>
+
+            {apiError && (
+                <div className="w-full max-w-2xl mb-4 p-4 bg-red-900/50 border border-red-500 rounded-lg">
+                    <p className="text-red-300">{apiError}</p>
+                </div>
+            )}
 
             <form
                 onSubmit={handleSubmit}
@@ -105,11 +128,11 @@ const ApplicationForm = () => {
                     {errors.email && <p className="text-red-400 text-sm mt-1">{errors.email}</p>}
                 </div>
 
-                <div className="mb-6">
+                <div className="mb-4">
                     <input
                         type="text"
                         name="enroller"
-                        placeholder="Enroller Name *"
+                        placeholder="Who told you about Talk Fusion?"
                         value={formData.enroller}
                         onChange={handleChange}
                         className="p-3 w-full rounded bg-gray-800 text-white border border-gray-700"
@@ -161,6 +184,35 @@ const ApplicationForm = () => {
                         <h2 className="text-2xl font-bold mb-4">✅ You're In!</h2>
                         <p className="mb-6">Thanks for enrolling. You'll be redirected to your dashboard shortly.</p>
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                    </div>
+                </div>
+            )}
+
+            {/* Password Modal */}
+            {showPasswordModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+                    <div className="bg-gray-800 rounded-lg shadow-xl p-6 max-w-md w-full">
+                        <h3 className="text-xl font-bold text-yellow-400 mb-4">Your Temporary Password</h3>
+                        <div className="bg-gray-700 p-4 rounded-lg mb-4">
+                            <p className="text-sm text-gray-400 mb-2">Please write down this password. You'll need it to log in:</p>
+                            <div className="flex items-center justify-between">
+                                <code className="text-lg font-mono bg-gray-900 px-3 py-2 rounded text-yellow-400">{tempPassword}</code>
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(tempPassword);
+                                        setSuccess('Password copied to clipboard!');
+                                        setTimeout(() => setSuccess(''), 2000);
+                                    }}
+                                    className="ml-2 text-blue-400 hover:text-blue-300"
+                                >
+                                    <HiClipboardCopy className="text-xl" />
+                                </button>
+                            </div>
+                            {success && <p className="text-green-400 text-sm mt-2">{success}</p>}
+                        </div>
+                        <div className="text-sm text-gray-400">
+                            <p>Time remaining to write down your password: {countdown} seconds</p>
+                        </div>
                     </div>
                 </div>
             )}

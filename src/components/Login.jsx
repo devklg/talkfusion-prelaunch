@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import axios from '../utils/axios';
+import api from '../utils/api';
 
 const Login = () => {
     const [formData, setFormData] = useState({
@@ -11,11 +11,22 @@ const Login = () => {
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
+    // Clear temp data if user navigates away from login
+    useEffect(() => {
+        return () => {
+            if (!localStorage.getItem('token')) {
+                localStorage.removeItem('tempEmail');
+                localStorage.removeItem('tempPassword');
+            }
+        };
+    }, []);
+
     const handleChange = (e) => {
         setFormData({
             ...formData,
             [e.target.name]: e.target.value
         });
+        setError(''); // Clear error when user types
     };
 
     const handleSubmit = async (e) => {
@@ -24,19 +35,45 @@ const Login = () => {
         setError('');
 
         try {
-            const response = await axios.post('/auth/login', formData);
+            console.log('Attempting login with:', { email: formData.email });
+            const response = await api.post('/api/auth/login', formData);
+            console.log('Login response:', response.data);
 
-            if (response.data.requiresPasswordChange) {
-                localStorage.setItem('tempEmail', formData.email);
-                navigate('/change-password');
-            } else {
+            if (response.data.token) {
+                // Store token and user data
                 localStorage.setItem('token', response.data.token);
                 localStorage.setItem('user', JSON.stringify(response.data.user));
-                navigate('/dashboard');
+
+                // Clear temporary data after successful login
+                localStorage.removeItem('tempEmail');
+                localStorage.removeItem('tempPassword');
+
+                // Navigate based on conditions
+                if (response.data.requiresPasswordChange) {
+                    navigate('/change-password');
+                } else {
+                    navigate('/dashboard');
+                }
+            } else {
+                console.error('Invalid response format:', response.data);
+                setError('Invalid response from server');
             }
         } catch (error) {
-            setError(error.response?.data?.message || 'An error occurred during login');
-            console.error('Login error:', error);
+            console.error('Login error:', {
+                message: error.message,
+                response: error.response?.data,
+                status: error.response?.status
+            });
+
+            if (error.response?.status === 401) {
+                setError('Invalid email or password. Please try again.');
+            } else if (error.response?.status === 404) {
+                setError('Server endpoint not found. Please try again later.');
+            } else if (!error.response) {
+                setError('Unable to connect to server. Please check your connection.');
+            } else {
+                setError(error.response?.data?.message || 'An error occurred during login');
+            }
         } finally {
             setLoading(false);
         }
@@ -76,6 +113,7 @@ const Login = () => {
                                 name="email"
                                 type="email"
                                 required
+                                autoComplete="email"
                                 className="appearance-none relative block w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg placeholder-gray-400 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm"
                                 placeholder="Enter your email"
                                 value={formData.email}
@@ -91,6 +129,7 @@ const Login = () => {
                                 name="password"
                                 type="password"
                                 required
+                                autoComplete="current-password"
                                 className="appearance-none relative block w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg placeholder-gray-400 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm"
                                 placeholder="Enter your password"
                                 value={formData.password}
@@ -117,8 +156,8 @@ const Login = () => {
                             type="submit"
                             disabled={loading}
                             className={`group relative w-full flex justify-center py-2.5 px-4 border border-transparent text-sm font-medium rounded-lg text-white ${loading
-                                    ? 'bg-blue-600/50 cursor-not-allowed'
-                                    : 'bg-blue-600 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                                ? 'bg-blue-600/50 cursor-not-allowed'
+                                : 'bg-blue-600 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
                                 } transition-colors duration-200`}
                         >
                             {loading ? (

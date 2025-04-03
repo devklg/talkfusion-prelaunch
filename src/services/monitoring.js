@@ -1,4 +1,4 @@
-import axios from '../utils/axios';
+import api from '../utils/api';
 
 class MonitoringService {
     constructor() {
@@ -17,7 +17,13 @@ class MonitoringService {
 
     async checkHealth() {
         try {
-            const response = await axios.get('/api/health');
+            const startTime = Date.now();
+            const response = await api.get('/api/auth/health');
+            const endTime = Date.now();
+            
+            this.performanceMetrics.apiLatency.push(endTime - startTime);
+            this.performanceMetrics.lastCheck = new Date().toISOString();
+            
             if (response.status === 200) {
                 this.isHealthy = true;
                 this.errorCount = 0;

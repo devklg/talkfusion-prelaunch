@@ -8,7 +8,10 @@ import {
     HiCurrencyDollar,
     HiUser,
     HiLogout,
-    HiGlobe
+    HiGlobe,
+    HiShoppingCart,
+    HiLightBulb,
+    HiDocumentText
 } from "react-icons/hi";
 
 const Sidebar = () => {
@@ -20,7 +23,9 @@ const Sidebar = () => {
         { path: "/team", icon: HiUserGroup, label: "My Team" },
         { path: "/analytics", icon: HiChartBar, label: "Analytics" },
         { path: "/earnings", icon: HiCurrencyDollar, label: "Earnings" },
-        { path: "/profile", icon: HiUser, label: "My Profile" }
+        { path: "/profile", icon: HiUser, label: "My Profile" },
+        { path: "/opportunity", icon: HiLightBulb, label: "Opportunity" },
+        { path: "/compensation-plan", icon: HiDocumentText, label: "Compensation Plan" }
     ];
 
     const socialLinks = [
@@ -56,8 +61,8 @@ const Sidebar = () => {
                                 <Link
                                     to={item.path}
                                     className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
-                                            ? "bg-blue-600 text-white"
-                                            : "text-gray-400 hover:bg-gray-700 hover:text-white"
+                                        ? "bg-blue-600 text-white"
+                                        : "text-gray-400 hover:bg-gray-700 hover:text-white"
                                         }`}
                                 >
                                     <Icon className="w-5 h-5" />

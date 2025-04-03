@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from '../utils/axios';
+import api from '../utils/api';
 import Layout from './Layout';
 
 const ChangePassword = () => {
@@ -28,6 +28,7 @@ const ChangePassword = () => {
             ...formData,
             [e.target.name]: e.target.value
         });
+        setError(''); // Clear error when user types
     };
 
     const handleSubmit = async (e) => {
@@ -47,8 +48,7 @@ const ChangePassword = () => {
         setLoading(true);
 
         try {
-            const response = await axios.post('/auth/change-password', {
-                email: user.email,
+            const response = await api.post('/api/auth/change-password', {
                 currentPassword: formData.currentPassword,
                 newPassword: formData.newPassword
             });
@@ -59,11 +59,15 @@ const ChangePassword = () => {
             localStorage.removeItem('tempEmail');
             localStorage.removeItem('tempPassword');
 
-            // Redirect to profile
-            navigate('/profile');
+            // Redirect to dashboard
+            navigate('/dashboard');
         } catch (err) {
             console.error('Password change error:', err);
-            setError(err.response?.data?.message || 'Failed to change password. Please try again.');
+            if (err.response?.status === 401) {
+                setError('Current password is incorrect. Please try again.');
+            } else {
+                setError(err.response?.data?.message || 'Failed to change password. Please try again.');
+            }
         } finally {
             setLoading(false);
         }

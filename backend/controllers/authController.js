@@ -16,10 +16,10 @@ const generateTempPassword = () => {
 
 exports.signup = async (req, res) => {
     try {
-        const { firstName, lastName, email, phone, country, language } = req.body;
+        const { firstName, lastName, email, enroller, package } = req.body;
 
         // Validate required fields
-        if (!firstName || !lastName || !email || !phone || !country || !language) {
+        if (!firstName || !lastName || !email || !package || !enroller) {
             return res.status(400).json({ message: "All fields are required" });
         }
 
@@ -41,39 +41,38 @@ exports.signup = async (req, res) => {
             firstName,
             lastName,
             email,
-            phone,
-            country,
-            language,
+            enroller,
+            package,
             password: hashedPassword,
             isTempPassword: true
         });
 
         await user.save();
 
-        // Generate JWT token
+        // Create JWT token
         const token = jwt.sign(
-            { userId: user._id },
+            { user: { id: user._id } },
             process.env.JWT_SECRET,
-            { expiresIn: "24h" }
+            { expiresIn: '24h' }
         );
 
+        // Return user data and token
         res.status(201).json({
-            message: "User created successfully",
-            token,
+            message: "Signup successful",
             user: {
                 id: user._id,
                 firstName: user.firstName,
                 lastName: user.lastName,
                 email: user.email,
-                phone: user.phone,
-                country: user.country,
-                language: user.language
-            },
-            tempPassword // Send temporary password to user
+                enroller: user.enroller,
+                package: user.package,
+                token,
+                tempPassword
+            }
         });
-    } catch (error) {
-        console.error("Signup error:", error);
-        res.status(500).json({ message: error.message || "Error creating user" });
+    } catch (err) {
+        console.error('Signup error:', err);
+        res.status(500).json({ message: "Server error" });
     }
 };
 
@@ -105,14 +104,14 @@ exports.login = async (req, res) => {
             return res.status(200).json({
                 message: "Please change your temporary password",
                 requiresPasswordChange: true,
+                token,
                 user: {
                     id: user._id,
                     firstName: user.firstName,
                     lastName: user.lastName,
                     email: user.email,
-                    phone: user.phone,
-                    country: user.country,
-                    language: user.language
+                    enroller: user.enroller,
+                    package: user.package
                 }
             });
         }
@@ -125,9 +124,8 @@ exports.login = async (req, res) => {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 email: user.email,
-                phone: user.phone,
-                country: user.country,
-                language: user.language
+                enroller: user.enroller,
+                package: user.package
             }
         });
     } catch (error) {
@@ -138,18 +136,22 @@ exports.login = async (req, res) => {
 
 exports.changePassword = async (req, res) => {
     try {
-        const { email, currentPassword, newPassword } = req.body;
+        const { currentPassword, newPassword } = req.body;
+        const userId = req.user._id;
 
         // Find user
-        const user = await User.findOne({ email });
+        const user = await User.findById(userId);
         if (!user) {
-            return res.status(404).json({ message: 'User not found' });
+            return res.status(404).json({ message: "User not found" });
         }
 
-        // Verify current password
-        const isMatch = await bcrypt.compare(currentPassword, user.password);
-        if (!isMatch) {
-            return res.status(401).json({ message: 'Current password is incorrect' });
+        // If user has a temporary password, allow password change without current password
+        if (!user.isTempPassword) {
+            // Verify current password
+            const isMatch = await bcrypt.compare(currentPassword, user.password);
+            if (!isMatch) {
+                return res.status(401).json({ message: "Current password is incorrect" });
+            }
         }
 
         // Hash new password
@@ -161,28 +163,9 @@ exports.changePassword = async (req, res) => {
         user.isTempPassword = false;
         await user.save();
 
-        // Generate new JWT token
-        const token = jwt.sign(
-            { userId: user._id },
-            process.env.JWT_SECRET,
-            { expiresIn: '24h' }
-        );
-
-        res.json({
-            message: 'Password changed successfully',
-            token,
-            user: {
-                id: user._id,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                email: user.email,
-                phone: user.phone,
-                country: user.country,
-                language: user.language
-            }
-        });
-    } catch (error) {
-        console.error('Change password error:', error);
-        res.status(500).json({ message: 'Error changing password' });
+        res.json({ message: "Password updated successfully" });
+    } catch (err) {
+        console.error('Change password error:', err);
+        res.status(500).json({ message: "Server error" });
     }
 }; 

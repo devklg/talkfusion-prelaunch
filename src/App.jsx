@@ -1,63 +1,57 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Navbar from './components/Navbar';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { initializeSecurity } from './utils/security';
+import { AuthProvider } from './context/AuthContext';
 import LandingPage from './components/LandingPage';
-import Login from './components/Login';
 import Signup from './components/Signup';
-import ChangePassword from './components/ChangePassword';
+import Login from './components/Login';
 import Dashboard from './components/Dashboard';
-import Leaderboard from './components/Leaderboard';
 import Profile from './components/Profile';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import ChangePassword from './components/ChangePassword';
+import Products from './components/Products';
+import Team from './components/Team';
+import Analytics from './components/Analytics';
+import Earnings from './components/Earnings';
+import CompensationPlan from './components/CompensationPlan';
+import Opportunity from './components/Opportunity';
 import ErrorBoundary from './components/ErrorBoundary';
-import monitoringService from './services/monitoring';
-
-const PrivateRoute = ({ children }) => {
-    const { isAuthenticated } = useAuth();
-    return isAuthenticated ? children : <Navigate to="/login" />;
-};
+import Layout from './components/Layout';
 
 const App = () => {
-    // Log application startup
-    React.useEffect(() => {
-        // --- CORRECTED LINES ---
+    useEffect(() => {
+        // Initialize security settings
+        initializeSecurity();
+
+        // Log application start
         console.log('Application started:', {
             timestamp: new Date().toISOString(),
-            environment: import.meta.env.MODE, // Use Vite's MODE
-            version: import.meta.env.VITE_APP_VERSION // Use import.meta.env
+            environment: import.meta.env.MODE,
+            version: import.meta.env.VITE_APP_VERSION
         });
-        // --- END CORRECTION ---
     }, []);
+
     return (
         <ErrorBoundary>
             <AuthProvider>
-                <Router>
-                    <div className="min-h-screen bg-gray-900">
-                        <Navbar />
-                        <Routes>
-                            <Route path="/" element={<LandingPage />} />
-                            <Route path="/login" element={<Login />} />
-                            <Route path="/signup" element={<Signup />} />
+                <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                    <Routes>
+                        <Route path="/" element={<LandingPage />} />
+                        <Route path="/signup" element={<Signup />} />
+                        <Route path="/login" element={<Login />} />
+                        <Route path="/compensation-plan" element={<CompensationPlan />} />
+                        <Route path="/opportunity" element={<Opportunity />} />
+
+                        {/* Protected Routes */}
+                        <Route element={<Layout />}>
+                            <Route path="/dashboard" element={<Dashboard />} />
+                            <Route path="/profile" element={<Profile />} />
                             <Route path="/change-password" element={<ChangePassword />} />
-                            <Route
-                                path="/dashboard"
-                                element={
-                                    <PrivateRoute>
-                                        <Dashboard />
-                                    </PrivateRoute>
-                                }
-                            />
-                            <Route
-                                path="/profile"
-                                element={
-                                    <PrivateRoute>
-                                        <Profile />
-                                    </PrivateRoute>
-                                }
-                            />
-                            <Route path="/leaderboard" element={<Leaderboard />} />
-                        </Routes>
-                    </div>
+                            <Route path="/products" element={<Products />} />
+                            <Route path="/team" element={<Team />} />
+                            <Route path="/analytics" element={<Analytics />} />
+                            <Route path="/earnings" element={<Earnings />} />
+                        </Route>
+                    </Routes>
                 </Router>
             </AuthProvider>
         </ErrorBoundary>

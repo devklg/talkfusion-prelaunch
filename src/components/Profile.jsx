@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import axios from '../utils/axios';
+import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
-import Layout from './Layout';
+import { useNavigate } from 'react-router-dom';
+import { HiUser, HiLockClosed, HiMail, HiPhone, HiHome, HiLocationMarker, HiUserGroup, HiShoppingCart } from 'react-icons/hi';
 
 // US States data
 const US_STATES = [
@@ -112,69 +113,67 @@ const COUNTRIES = [
 ];
 
 const Profile = () => {
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
+    const navigate = useNavigate();
     const [formData, setFormData] = useState({
         firstName: '',
         lastName: '',
-        email: '',
-        phone: '',
         address: '',
         city: '',
         state: '',
-        zip: '',
+        zipCode: '',
         country: '',
+        telephone: '',
         enroller: '',
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
+        package: ''
     });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-    const [showPaymentModal, setShowPaymentModal] = useState(false);
-    const [paymentData, setPaymentData] = useState({
-        cardNumber: '',
-        expiryDate: '',
-        cvv: '',
-        cardholderName: ''
+    const [passwordData, setPasswordData] = useState({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
     });
+    const [showPasswordForm, setShowPasswordForm] = useState(false);
 
     useEffect(() => {
         const fetchUserData = async () => {
             try {
-                const response = await axios.get('/users/me');
+                const response = await api.get('/api/users/me');
                 setFormData(response.data);
             } catch (err) {
                 console.error('Error fetching user data:', err);
-                setError('Failed to load user data');
+                if (err.response?.status === 401) {
+                    navigate('/login');
+                } else {
+                    setError('Failed to load user data');
+                }
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchUserData();
-    }, []);
+        if (!authLoading && user) {
+            fetchUserData();
+        }
+    }, [navigate, authLoading, user]);
 
     const handleChange = (e) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value
-        });
-    };
-
-    const handlePaymentChange = (e) => {
-        setPaymentData({
-            ...paymentData,
-            [e.target.name]: e.target.value
-        });
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setError('');
+        setSuccess('');
+
         try {
-            setError('');
-            setSuccess('');
-            await axios.put('/users/me', formData);
+            await api.put('/api/users/me', formData);
             setSuccess('Profile updated successfully');
         } catch (err) {
             console.error('Error updating profile:', err);
@@ -184,345 +183,362 @@ const Profile = () => {
 
     const handlePasswordChange = async (e) => {
         e.preventDefault();
-        if (formData.newPassword !== formData.confirmPassword) {
-            setError('Passwords do not match');
+        setError(null);
+        setSuccess(null);
+
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+            setError('New passwords do not match');
             return;
         }
 
         try {
-            setError('');
-            setSuccess('');
-            await axios.post('/auth/change-password', {
-                currentPassword: formData.currentPassword,
-                newPassword: formData.newPassword
+            await api.post('/api/auth/change-password', {
+                currentPassword: passwordData.currentPassword,
+                newPassword: passwordData.newPassword
             });
-            setSuccess('Password changed successfully');
-            setFormData({
-                ...formData,
+            setSuccess('Password updated successfully');
+            setPasswordData({
                 currentPassword: '',
                 newPassword: '',
                 confirmPassword: ''
             });
+            setShowPasswordForm(false);
         } catch (err) {
-            console.error('Error changing password:', err);
-            setError(err.response?.data?.message || 'Failed to change password');
+            setError(err.response?.data?.message || 'Failed to update password');
         }
     };
 
-    const handlePaymentSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            setError('');
-            setSuccess('');
-            await axios.post('/users/payment', paymentData);
-            setSuccess('Payment information updated successfully');
-            setShowPaymentModal(false);
-            setPaymentData({
-                cardNumber: '',
-                expiryDate: '',
-                cvv: '',
-                cardholderName: ''
-            });
-        } catch (err) {
-            console.error('Error updating payment:', err);
-            setError(err.response?.data?.message || 'Failed to update payment information');
-        }
-    };
-
-    if (loading) {
+    if (loading || authLoading) {
         return (
-            <Layout user={user}>
-                <div className="flex items-center justify-center h-full">
-                    <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
-                </div>
-            </Layout>
+            <div className="flex justify-center items-center min-h-screen">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+            </div>
         );
     }
 
+    if (!user) {
+        navigate('/login');
+        return null;
+    }
+
     return (
-        <Layout user={user}>
-            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div className="bg-gray-800 shadow rounded-lg p-6">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl font-bold text-white">Profile Settings</h2>
-                        <button
-                            onClick={() => setShowPaymentModal(true)}
-                            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500"
-                        >
-                            Payment Info
-                        </button>
+        <div className="max-w-4xl mx-auto p-6">
+            <div className="bg-gray-800 rounded-lg shadow-xl p-6">
+                <h2 className="text-2xl font-bold text-yellow-400 mb-6">Profile Settings</h2>
+
+                {error && (
+                    <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg mb-6">
+                        {error}
+                    </div>
+                )}
+
+                {success && (
+                    <div className="bg-green-500/10 border border-green-500/20 text-green-400 px-4 py-3 rounded-lg mb-6">
+                        {success}
+                    </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    {/* Personal Information */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-white mb-4">Personal Information</h3>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400 mb-1">First Name</label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <HiUser className="text-gray-400" />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        name="firstName"
+                                        value={formData.firstName}
+                                        onChange={handleChange}
+                                        className="block w-full pl-10 pr-3 py-2 border border-gray-700 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400 mb-1">Last Name</label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <HiUser className="text-gray-400" />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        name="lastName"
+                                        value={formData.lastName}
+                                        onChange={handleChange}
+                                        className="block w-full pl-10 pr-3 py-2 border border-gray-700 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        required
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400 mb-1">Email</label>
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <HiMail className="text-gray-400" />
+                                </div>
+                                <input
+                                    type="email"
+                                    value={user?.email}
+                                    disabled
+                                    className="block w-full pl-10 pr-3 py-2 border border-gray-700 rounded-lg bg-gray-700 text-gray-400 cursor-not-allowed"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400 mb-1">Telephone</label>
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <HiPhone className="text-gray-400" />
+                                </div>
+                                <input
+                                    type="tel"
+                                    name="telephone"
+                                    value={formData.telephone}
+                                    onChange={handleChange}
+                                    className="block w-full pl-10 pr-3 py-2 border border-gray-700 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    required
+                                />
+                            </div>
+                        </div>
                     </div>
 
-                    {error && (
-                        <div className="bg-red-500 text-white p-4 rounded mb-4">
-                            {error}
-                        </div>
-                    )}
+                    {/* Address Information */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-white mb-4">Address Information</h3>
 
-                    {success && (
-                        <div className="bg-green-500 text-white p-4 rounded mb-4">
-                            {success}
-                        </div>
-                    )}
-
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label className="block text-sm font-medium mb-2">First Name</label>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400 mb-1">Address</label>
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <HiHome className="text-gray-400" />
+                                </div>
                                 <input
                                     type="text"
-                                    name="firstName"
-                                    value={formData.firstName}
+                                    name="address"
+                                    value={formData.address}
                                     onChange={handleChange}
-                                    className="w-full p-2 rounded bg-gray-800 border border-gray-700"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-2">Last Name</label>
-                                <input
-                                    type="text"
-                                    name="lastName"
-                                    value={formData.lastName}
-                                    onChange={handleChange}
-                                    className="w-full p-2 rounded bg-gray-800 border border-gray-700"
+                                    className="block w-full pl-10 pr-3 py-2 border border-gray-700 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     required
                                 />
                             </div>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium mb-2">Email</label>
-                            <input
-                                type="email"
-                                name="email"
-                                value={formData.email}
-                                onChange={handleChange}
-                                className="w-full p-2 rounded bg-gray-800 border border-gray-700"
-                                required
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium mb-2">Phone</label>
-                            <input
-                                type="tel"
-                                name="phone"
-                                value={formData.phone}
-                                onChange={handleChange}
-                                className="w-full p-2 rounded bg-gray-800 border border-gray-700"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium mb-2">Address</label>
-                            <input
-                                type="text"
-                                name="address"
-                                value={formData.address}
-                                onChange={handleChange}
-                                className="w-full p-2 rounded bg-gray-800 border border-gray-700"
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium mb-2">City</label>
-                                <input
-                                    type="text"
-                                    name="city"
-                                    value={formData.city}
-                                    onChange={handleChange}
-                                    className="w-full p-2 rounded bg-gray-800 border border-gray-700"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-2">State</label>
-                                <input
-                                    type="text"
-                                    name="state"
-                                    value={formData.state}
-                                    onChange={handleChange}
-                                    className="w-full p-2 rounded bg-gray-800 border border-gray-700"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-2">ZIP Code</label>
-                                <input
-                                    type="text"
-                                    name="zip"
-                                    value={formData.zip}
-                                    onChange={handleChange}
-                                    className="w-full p-2 rounded bg-gray-800 border border-gray-700"
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium mb-2">Country</label>
-                            <input
-                                type="text"
-                                name="country"
-                                value={formData.country}
-                                onChange={handleChange}
-                                className="w-full p-2 rounded bg-gray-800 border border-gray-700"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium mb-2">Enroller</label>
-                            <input
-                                type="text"
-                                name="enroller"
-                                value={formData.enroller}
-                                onChange={handleChange}
-                                className="w-full p-2 rounded bg-gray-800 border border-gray-700"
-                                required
-                            />
-                        </div>
-
-                        <div className="border-t border-gray-700 pt-6">
-                            <h3 className="text-lg font-medium text-white mb-4">Change Password</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">Current Password</label>
+                                <label className="block text-sm font-medium text-gray-400 mb-1">City</label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <HiLocationMarker className="text-gray-400" />
+                                    </div>
                                     <input
-                                        type="password"
-                                        name="currentPassword"
-                                        value={formData.currentPassword}
+                                        type="text"
+                                        name="city"
+                                        value={formData.city}
                                         onChange={handleChange}
-                                        className="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white"
+                                        className="block w-full pl-10 pr-3 py-2 border border-gray-700 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        required
                                     />
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">New Password</label>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400 mb-1">State</label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <HiLocationMarker className="text-gray-400" />
+                                    </div>
                                     <input
-                                        type="password"
-                                        name="newPassword"
-                                        value={formData.newPassword}
+                                        type="text"
+                                        name="state"
+                                        value={formData.state}
                                         onChange={handleChange}
-                                        className="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white"
+                                        className="block w-full pl-10 pr-3 py-2 border border-gray-700 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        required
                                     />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">Confirm New Password</label>
-                                    <input
-                                        type="password"
-                                        name="confirmPassword"
-                                        value={formData.confirmPassword}
-                                        onChange={handleChange}
-                                        className="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white"
-                                    />
-                                </div>
-                                <div className="flex items-end">
-                                    <button
-                                        type="button"
-                                        onClick={handlePasswordChange}
-                                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500"
-                                    >
-                                        Change Password
-                                    </button>
                                 </div>
                             </div>
                         </div>
 
-                        <button
-                            type="submit"
-                            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded"
-                        >
-                            Update Profile
-                        </button>
-                    </form>
-                </div>
-            </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400 mb-1">ZIP Code</label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <HiLocationMarker className="text-gray-400" />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        name="zipCode"
+                                        value={formData.zipCode}
+                                        onChange={handleChange}
+                                        className="block w-full pl-10 pr-3 py-2 border border-gray-700 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        required
+                                    />
+                                </div>
+                            </div>
 
-            {/* Payment Modal */}
-            {showPaymentModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-medium text-white">Payment Information</h3>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400 mb-1">Country</label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <HiLocationMarker className="text-gray-400" />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        name="country"
+                                        value={formData.country}
+                                        onChange={handleChange}
+                                        className="block w-full pl-10 pr-3 py-2 border border-gray-700 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        required
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Account Information */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-white mb-4">Account Information</h3>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400 mb-1">Enroller</label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <HiUserGroup className="text-gray-400" />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        name="enroller"
+                                        value={formData.enroller}
+                                        onChange={handleChange}
+                                        className="block w-full pl-10 pr-3 py-2 border border-gray-700 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400 mb-1">Package</label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <HiShoppingCart className="text-gray-400" />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        name="package"
+                                        value={formData.package}
+                                        onChange={handleChange}
+                                        className="block w-full pl-10 pr-3 py-2 border border-gray-700 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        required
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Password Change Section */}
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-lg font-semibold text-white">Password</h3>
                             <button
-                                onClick={() => setShowPaymentModal(false)}
-                                className="text-gray-400 hover:text-white"
+                                type="button"
+                                onClick={() => setShowPasswordForm(!showPasswordForm)}
+                                className="text-blue-400 hover:text-blue-300 text-sm"
                             >
-                                <span className="sr-only">Close</span>
-                                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
+                                {showPasswordForm ? 'Cancel' : 'Change Password'}
                             </button>
                         </div>
-                        <form onSubmit={handlePaymentSubmit} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">Card Number</label>
-                                <input
-                                    type="text"
-                                    name="cardNumber"
-                                    value={paymentData.cardNumber}
-                                    onChange={handlePaymentChange}
-                                    className="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white"
-                                    placeholder="1234 5678 9012 3456"
-                                    required
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
+
+                        {showPasswordForm && (
+                            <div className="space-y-4 bg-gray-700/50 p-4 rounded-lg">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">Expiry Date</label>
-                                    <input
-                                        type="text"
-                                        name="expiryDate"
-                                        value={paymentData.expiryDate}
-                                        onChange={handlePaymentChange}
-                                        className="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white"
-                                        placeholder="MM/YY"
-                                        required
-                                    />
+                                    <label className="block text-sm font-medium text-gray-400 mb-1">Current Password</label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <HiLockClosed className="text-gray-400" />
+                                        </div>
+                                        <input
+                                            type="password"
+                                            value={passwordData.currentPassword}
+                                            onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                                            className="block w-full pl-10 pr-3 py-2 border border-gray-700 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            required
+                                        />
+                                    </div>
                                 </div>
+
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">CVV</label>
-                                    <input
-                                        type="text"
-                                        name="cvv"
-                                        value={paymentData.cvv}
-                                        onChange={handlePaymentChange}
-                                        className="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white"
-                                        placeholder="123"
-                                        required
-                                    />
+                                    <label className="block text-sm font-medium text-gray-400 mb-1">New Password</label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <HiLockClosed className="text-gray-400" />
+                                        </div>
+                                        <input
+                                            type="password"
+                                            value={passwordData.newPassword}
+                                            onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                                            className="block w-full pl-10 pr-3 py-2 border border-gray-700 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            required
+                                        />
+                                    </div>
                                 </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">Cardholder Name</label>
-                                <input
-                                    type="text"
-                                    name="cardholderName"
-                                    value={paymentData.cardholderName}
-                                    onChange={handlePaymentChange}
-                                    className="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white"
-                                    placeholder="John Doe"
-                                    required
-                                />
-                            </div>
-                            <div className="flex justify-end space-x-3">
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-400 mb-1">Confirm New Password</label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <HiLockClosed className="text-gray-400" />
+                                        </div>
+                                        <input
+                                            type="password"
+                                            value={passwordData.confirmPassword}
+                                            onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                                            className="block w-full pl-10 pr-3 py-2 border border-gray-700 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
                                 <button
                                     type="button"
-                                    onClick={() => setShowPaymentModal(false)}
-                                    className="px-4 py-2 border border-gray-600 rounded text-white hover:bg-gray-700"
+                                    onClick={handlePasswordChange}
+                                    className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                                 >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500"
-                                >
-                                    Save Payment Info
+                                    Update Password
                                 </button>
                             </div>
-                        </form>
+                        )}
                     </div>
-                </div>
-            )}
-        </Layout>
+
+                    <div className="flex justify-end space-x-4">
+                        <button
+                            type="button"
+                            onClick={() => navigate('/dashboard')}
+                            className="px-4 py-2 text-sm font-medium text-gray-400 hover:text-white focus:outline-none"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        >
+                            Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     );
 };
 
